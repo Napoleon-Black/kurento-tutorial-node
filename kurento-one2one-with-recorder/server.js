@@ -1,20 +1,3 @@
-/*
- * (C) Copyright 2014 Kurento (http://kurento.org/)
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
 var path = require('path');
 var express = require('express');
 var ws = require('ws');
@@ -65,11 +48,13 @@ function UserSession(id, name, ws) {
     this.ws = ws;
     this.peer = null;
     this.sdpOffer = null;
+    this.bitrate = null;
+    this.bandwidth = null;
 }
 
 UserSession.prototype.sendMessage = function(message) {
     this.ws.send(JSON.stringify(message));
-}
+};
 
 // Represents registrar of users
 function UserRegistry() {
@@ -80,33 +65,34 @@ function UserRegistry() {
 UserRegistry.prototype.register = function(user) {
     this.usersById[user.id] = user;
     this.usersByName[user.name] = user;
-}
+};
 
 UserRegistry.prototype.unregister = function(id) {
     var user = this.getById(id);
-    if (user) delete this.usersById[id]
+    if (user) delete this.usersById[id];
     if (user && this.getByName(user.name)) delete this.usersByName[user.name];
-}
+};
 
 UserRegistry.prototype.getById = function(id) {
     return this.usersById[id];
-}
+};
 
 UserRegistry.prototype.getByName = function(name) {
     return this.usersByName[name];
-}
+};
 
 UserRegistry.prototype.removeById = function(id) {
     var userSession = this.usersById[id];
     if (!userSession) return;
     delete this.usersById[id];
     delete this.usersByName[userSession.name];
-}
+};
 
 // Represents a B2B active call
 function CallMediaPipeline() {
     this.pipeline = null;
     this.webRtcEndpoint = {};
+    this.recorderEndpoint_mp4 = {};
 }
 
 CallMediaPipeline.prototype.createPipeline = function(callerId, calleeId, ws, callback) {
@@ -121,11 +107,46 @@ CallMediaPipeline.prototype.createPipeline = function(callerId, calleeId, ws, ca
                 return callback(error);
             }
 
-            pipeline.create('WebRtcEndpoint', function(error, callerWebRtcEndpoint) {
+            var callerDest = 'file://' + __dirname + '/videos/' + new Date().toISOString().split('.')[0] + '_candidate.mp4';
+            var calleeDest = 'file://' + __dirname + '/videos/' + new Date().toISOString().split('.')[0] + '_interviewer.mp4';
+
+            var callerElements = [
+              {type: 'RecorderEndpoint', params: {uri : callerDest, mediaProfile: 'MP4'}},
+              {type: 'WebRtcEndpoint', params: {}}
+            ];
+
+            pipeline.create(callerElements, function(error, callerElements) {
                 if (error) {
                     pipeline.release();
                     return callback(error);
                 }
+
+                var callerRecorder_mp4 = callerElements[0];
+                var callerWebRtcEndpoint = callerElements[1];
+                var callerBitrate = parseInt(userRegistry.getById(callerId).bitrate) * 1000000;
+                var callerBandwidth = parseInt(userRegistry.getById(callerId).bandwidth) * 1000000;
+
+                // Change max/min bandwidth for video
+                callerWebRtcEndpoint.setMaxVideoSendBandwidth(callerBandwidth, function(error) {
+                    if (error) return console.log(error);
+                });
+                callerWebRtcEndpoint.setMinVideoSendBandwidth(callerBandwidth, function(error) {
+                    if (error) return console.log(error);
+                });
+                // Change max/min bandwidth for recv
+                callerWebRtcEndpoint.setMaxVideoRecvBandwidth(callerBandwidth, function(error) {
+                    if (error) return console.log(error);
+                });
+                callerWebRtcEndpoint.setMinVideoRecvBandwidth(callerBandwidth, function(error) {
+                    if (error) return console.log(error);
+                });
+                // Change max/min bitrate
+                callerWebRtcEndpoint.setMaxOutputBitrate(callerBitrate, function(error) {
+                    if (error) return console.log(error);
+                });
+                callerWebRtcEndpoint.setMinOutputBitrate(callerBitrate, function(error) {
+                    if (error) return console.log(error);
+                });
 
                 if (candidatesQueue[callerId]) {
                     while(candidatesQueue[callerId].length) {
@@ -142,11 +163,43 @@ CallMediaPipeline.prototype.createPipeline = function(callerId, calleeId, ws, ca
                     }));
                 });
 
-                pipeline.create('WebRtcEndpoint', function(error, calleeWebRtcEndpoint) {
+                var calleeElements = [
+                  {type: 'RecorderEndpoint', params: {uri : calleeDest, mediaProfile: 'MP4'}},
+                  {type: 'WebRtcEndpoint', params: {}}
+                ];
+
+                pipeline.create(calleeElements, function(error, calleeElements) {
                     if (error) {
                         pipeline.release();
                         return callback(error);
                     }
+
+                    var calleeRecorder_mp4 = calleeElements[0];
+                    var calleeWebRtcEndpoint = calleeElements[1];
+                    var calleeBitrate = parseInt(userRegistry.getById(calleeId).bitrate) * 1000000;
+                    var calleeBandwidth = parseInt(userRegistry.getById(calleeId).bandwidth) * 1000000;
+
+                    // Change max/min bandwidth for video
+                    calleeWebRtcEndpoint.setMaxVideoSendBandwidth(calleeBandwidth, function(error) {
+                        if (error) return console.log(error);
+                    });
+                    calleeWebRtcEndpoint.setMinVideoSendBandwidth(calleeBandwidth, function(error) {
+                        if (error) return console.log(error);
+                    });
+                    // Change max/min bandwidth for recv
+                    calleeWebRtcEndpoint.setMaxVideoRecvBandwidth(calleeBandwidth, function(error) {
+                        if (error) return console.log(error);
+                    });
+                    calleeWebRtcEndpoint.setMinVideoRecvBandwidth(calleeBandwidth, function(error) {
+                        if (error) return console.log(error);
+                    });
+                    // Change max/min bitrate
+                    calleeWebRtcEndpoint.setMaxOutputBitrate(calleeBitrate, function(error) {
+                        if (error) return console.log(error);
+                    });
+                    calleeWebRtcEndpoint.setMinOutputBitrate(calleeBitrate, function(error) {
+                        if (error) return console.log(error);
+                    });
 
                     if (candidatesQueue[calleeId]) {
                         while(candidatesQueue[calleeId].length) {
@@ -161,6 +214,28 @@ CallMediaPipeline.prototype.createPipeline = function(callerId, calleeId, ws, ca
                             id : 'iceCandidate',
                             candidate : candidate
                         }));
+                    });
+
+                    callerWebRtcEndpoint.connect(callerRecorder_mp4, function(error) {
+                        if (error) {
+                            return callback(error);
+                        }
+                        callerRecorder_mp4.record(function(error) {
+                            if (error) {
+                                console.log(error)
+                            }
+                        });
+                    });
+
+                    calleeWebRtcEndpoint.connect(calleeRecorder_mp4, function(error) {
+                        if (error) {
+                            return callback(error);
+                        }
+                        calleeRecorder_mp4.record(function(error) {
+                            if (error) {
+                                console.log(error)
+                            }
+                        });
                     });
 
                     callerWebRtcEndpoint.connect(calleeWebRtcEndpoint, function(error) {
@@ -179,13 +254,15 @@ CallMediaPipeline.prototype.createPipeline = function(callerId, calleeId, ws, ca
                         self.pipeline = pipeline;
                         self.webRtcEndpoint[callerId] = callerWebRtcEndpoint;
                         self.webRtcEndpoint[calleeId] = calleeWebRtcEndpoint;
+                        self.recorderEndpoint_mp4[callerId] = callerRecorder_mp4;
+                        self.recorderEndpoint_mp4[calleeId] = calleeRecorder_mp4;
                         callback(null);
                     });
                 });
             });
         });
     })
-}
+};
 
 CallMediaPipeline.prototype.generateSdpAnswer = function(id, sdpOffer, callback) {
     this.webRtcEndpoint[id].processOffer(sdpOffer, callback);
@@ -194,12 +271,12 @@ CallMediaPipeline.prototype.generateSdpAnswer = function(id, sdpOffer, callback)
             return callback(error);
         }
     });
-}
+};
 
 CallMediaPipeline.prototype.release = function() {
     if (this.pipeline) this.pipeline.release();
     this.pipeline = null;
-}
+};
 
 /*
  * Server startup
@@ -208,8 +285,7 @@ CallMediaPipeline.prototype.release = function() {
 var asUrl = url.parse(argv.as_uri);
 var port = asUrl.port;
 var server = https.createServer(options, app).listen(port, function() {
-    console.log('Kurento Tutorial started');
-    console.log('Open ' + url.format(asUrl) + ' with a WebRTC capable browser');
+    console.log('Kurento Node.js server started');
 });
 
 var wss = new ws.Server({
@@ -242,11 +318,11 @@ wss.on('connection', function(ws) {
             break;
 
         case 'call':
-            call(sessionId, message.to, message.from, message.sdpOffer);
+            call(sessionId, message.to, message.from, message.sdpOffer, message.bitrate, message.bandwidth);
             break;
 
         case 'incomingCallResponse':
-            incomingCallResponse(sessionId, message.from, message.callResponse, message.sdpOffer, ws);
+            incomingCallResponse(sessionId, message.from, message.callResponse, message.sdpOffer, message.bitrate, message.bandwidth, ws);
             break;
 
         case 'stop':
@@ -303,14 +379,14 @@ function stop(sessionId) {
         var message = {
             id: 'stopCommunication',
             message: 'remote user hanged out'
-        }
+        };
         stoppedUser.sendMessage(message)
     }
 
     clearCandidatesQueue(sessionId);
 }
 
-function incomingCallResponse(calleeId, from, callResponse, calleeSdp, ws) {
+function incomingCallResponse(calleeId, from, callResponse, calleeSdp, bitrate, bandwidth, ws) {
 
     clearCandidatesQueue(calleeId);
 
@@ -320,7 +396,7 @@ function incomingCallResponse(calleeId, from, callResponse, calleeSdp, ws) {
             var callerMessage = {
                 id: 'callResponse',
                 response: 'rejected'
-            }
+            };
             if (callerReason) callerMessage.message = callerReason;
             caller.sendMessage(callerMessage);
         }
@@ -333,6 +409,8 @@ function incomingCallResponse(calleeId, from, callResponse, calleeSdp, ws) {
     }
 
     var callee = userRegistry.getById(calleeId);
+    callee.bitrate = bitrate;
+    callee.bandwidth = bandwidth;
     if (!from || !userRegistry.getByName(from)) {
         return onError(null, 'unknown from = ' + from);
     }
@@ -383,16 +461,18 @@ function incomingCallResponse(calleeId, from, callResponse, calleeSdp, ws) {
     }
 }
 
-function call(callerId, to, from, sdpOffer) {
+function call(callerId, to, from, sdpOffer, bitrate, bandwidth) {
     clearCandidatesQueue(callerId);
 
     var caller = userRegistry.getById(callerId);
     var rejectCause = 'User ' + to + ' is not registered';
     if (userRegistry.getByName(to)) {
         var callee = userRegistry.getByName(to);
-        caller.sdpOffer = sdpOffer
+        caller.sdpOffer = sdpOffer;
         callee.peer = from;
         caller.peer = to;
+        caller.bitrate = bitrate;
+        caller.bandwidth = bandwidth;
         var message = {
             id: 'incomingCall',
             from: from
@@ -421,10 +501,14 @@ function register(id, name, ws, callback) {
     }
 
     if (userRegistry.getByName(name)) {
-        return onError("User " + name + " is already registered");
+        var existUser = userRegistry.getByName(name);
+        stop(existUser.id);
+        userRegistry.unregister(existUser.id);
     }
 
     userRegistry.register(new UserSession(id, name, ws));
+
+    console.log(userRegistry);
     try {
         ws.send(JSON.stringify({id: 'registerResponse', response: 'accepted'}));
     } catch(exception) {

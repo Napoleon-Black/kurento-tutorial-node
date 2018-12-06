@@ -24,7 +24,63 @@ var registerName = null;
 const NOT_REGISTERED = 0;
 const REGISTERING = 1;
 const REGISTERED = 2;
-var registerState = null
+var registerState = null;
+
+
+function getMediaConstraints() {
+	let fps = $('#fps').val();
+	let resolution = $('#resolution').val().split('x');
+	if(navigator.userAgent.toLowerCase().indexOf('firefox') > -1){
+        return {
+            audio: {
+                sampleRate: 48000,
+                noiseSuppression: true,
+                echoCancellation: true,
+                autoGainControl: false,
+                volume: 0
+            },
+            video: {
+                mandatory: {
+                    maxWidth: resolution[0],
+                    minWidth: resolution[0],
+                    maxFrameRate: fps,
+                    minFrameRate: fps
+                },
+                width: {
+                    max: resolution[0],
+                    min: resolution[0],
+                    ideal: resolution[0]
+                },
+                height: {
+                    max: resolution[1],
+                    min: resolution[1],
+                    ideal: resolution[1]
+                },
+                frameRate: {
+                    max: fps,
+                    ideal: fps,
+                    min: fps,
+                }
+            }
+        };
+    } else {
+        return {
+            audio: {
+                sampleRate: 48000,
+                noiseSuppression: true,
+                echoCancellation: true,
+                autoGainControl: false,
+                volume: 0
+            },
+            video: {
+                frameRate: {min: fps, ideal: fps, max: fps},
+                width: {min: resolution[0], ideal: resolution[0], max: resolution[0]},
+                height: {min: resolution[1], ideal: resolution[1], max: resolution[1]}
+            }
+        };
+    }
+}
+
 
 function setRegisterState(nextState) {
 	switch (nextState) {
@@ -52,7 +108,7 @@ function setRegisterState(nextState) {
 const NO_CALL = 0;
 const PROCESSING_CALL = 1;
 const IN_CALL = 2;
-var callState = null
+var callState = null;
 
 function setCallState(nextState) {
 	switch (nextState) {
@@ -92,11 +148,11 @@ window.onload = function() {
 	document.getElementById('terminate').addEventListener('click', function() {
 		stop();
 	});
-}
+};
 
 window.onbeforeunload = function() {
 	ws.close();
-}
+};
 
 ws.onmessage = function(message) {
 	var parsedMessage = JSON.parse(message.data);
@@ -120,15 +176,15 @@ ws.onmessage = function(message) {
 		stop(true);
 		break;
 	case 'iceCandidate':
-		webRtcPeer.addIceCandidate(parsedMessage.candidate)
+		webRtcPeer.addIceCandidate(parsedMessage.candidate);
 		break;
 	default:
 		console.error('Unrecognized message', parsedMessage);
 	}
-}
+};
 
 function resgisterResponse(message) {
-	if (message.response == 'accepted') {
+	if (message.response === 'accepted') {
 		setRegisterState(REGISTERED);
 	} else {
 		setRegisterState(NOT_REGISTERED);
@@ -140,7 +196,7 @@ function resgisterResponse(message) {
 }
 
 function callResponse(message) {
-	if (message.response != 'accepted') {
+	if (message.response !== 'accepted') {
 		console.info('Call not accepted by peer. Closing call');
 		var errorMessage = message.message ? message.message
 				: 'Unknown reason for call rejection.';
@@ -159,7 +215,7 @@ function startCommunication(message) {
 
 function incomingCall(message) {
 	// If bussy just reject without disturbing user
-	if (callState != NO_CALL) {
+	if (callState !== NO_CALL) {
 		var response = {
 			id : 'incomingCallResponse',
 			from : message.from,
@@ -170,54 +226,44 @@ function incomingCall(message) {
 		return sendMessage(response);
 	}
 
-	setCallState(PROCESSING_CALL);
-	if (confirm('User ' + message.from
-			+ ' is calling you. Do you accept the call?')) {
-		showSpinner(videoInput, videoOutput);
+    setCallState(PROCESSING_CALL);
+    showSpinner(videoInput, videoOutput);
 
-		var options = {
-			localVideo : videoInput,
-			remoteVideo : videoOutput,
-			onicecandidate : onIceCandidate
-		}
+    var options = {
+        localVideo : videoInput,
+        remoteVideo : videoOutput,
+        onicecandidate : onIceCandidate,
+		mediaConstraints: getMediaConstraints()
+    };
 
-		webRtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendrecv(options,
-				function(error) {
-					if (error) {
-						console.error(error);
-						setCallState(NO_CALL);
-					}
+    webRtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendrecv(options,
+        function(error) {
+            if (error) {
+                console.error(error);
+                setCallState(NO_CALL);
+            }
 
-					this.generateOffer(function(error, offerSdp) {
-						if (error) {
-							console.error(error);
-							setCallState(NO_CALL);
-						}
-						var response = {
-							id : 'incomingCallResponse',
-							from : message.from,
-							callResponse : 'accept',
-							sdpOffer : offerSdp
-						};
-						sendMessage(response);
-					});
-				});
-
-	} else {
-		var response = {
-			id : 'incomingCallResponse',
-			from : message.from,
-			callResponse : 'reject',
-			message : 'user declined'
-		};
-		sendMessage(response);
-		stop(true);
-	}
+            this.generateOffer(function(error, offerSdp) {
+                if (error) {
+                    console.error(error);
+                    setCallState(NO_CALL);
+                }
+                var response = {
+                    id : 'incomingCallResponse',
+                    from : message.from,
+                    callResponse : 'accept',
+                    sdpOffer : offerSdp,
+					bitrate: $('#bitrate').val(),
+					bandwidth: $('#bandwidth').val()
+                };
+                sendMessage(response);
+            });
+        });
 }
 
 function register() {
 	var name = document.getElementById('name').value;
-	if (name == '') {
+	if (name === '') {
 		window.alert("You must insert your user name");
 		return;
 	}
@@ -233,7 +279,7 @@ function register() {
 }
 
 function call() {
-	if (document.getElementById('peer').value == '') {
+	if (document.getElementById('peer').value === '') {
 		window.alert("You must specify the peer name");
 		return;
 	}
@@ -245,8 +291,9 @@ function call() {
 	var options = {
 		localVideo : videoInput,
 		remoteVideo : videoOutput,
-		onicecandidate : onIceCandidate
-	}
+		onicecandidate : onIceCandidate,
+		mediaConstraints: getMediaConstraints()
+	};
 
 	webRtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendrecv(options, function(
 			error) {
@@ -264,7 +311,9 @@ function call() {
 				id : 'call',
 				from : document.getElementById('name').value,
 				to : document.getElementById('peer').value,
-				sdpOffer : offerSdp
+				sdpOffer : offerSdp,
+				bitrate: $('#bitrate').val(),
+				bandwidth: $('#bandwidth').val()
 			};
 			sendMessage(message);
 		});
@@ -281,7 +330,7 @@ function stop(message) {
 		if (!message) {
 			var message = {
 				id : 'stop'
-			}
+			};
 			sendMessage(message);
 		}
 	}
@@ -300,7 +349,7 @@ function onIceCandidate(candidate) {
 	var message = {
 		id : 'onIceCandidate',
 		candidate : candidate
-	}
+	};
 	sendMessage(message);
 }
 

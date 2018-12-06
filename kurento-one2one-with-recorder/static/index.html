@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="bower_components/ekko-lightbox/dist/ekko-lightbox.min.css">
     <link rel="stylesheet" href="css/kurento.css">
 
-    <script src="bower_components/adapter.js/adapter.js"></script>
+    <script src="bower_components/adapter.js/release/adapter.js"></script>
     <script src="bower_components/jquery/dist/jquery.min.js"></script>
     <script src="bower_components/bootstrap/dist/js/bootstrap.min.js"></script>
     <script src="bower_components/demo-console/index.js"></script>
@@ -22,8 +22,7 @@
 
     <script src="bower_components/kurento-utils/js/kurento-utils.js"></script>
 
-    <script src="js/index.js"></script>
-    <title>Kurento Tutorial 4: Video Call 1 to 1 with WebRTC</title>
+    <title>Kurento Demo: Video Call 1 to 1 with recording</title>
   </head>
   <body>
 
@@ -32,16 +31,10 @@
         <div class="container">
           <div class="navbar-header">
             <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse"></button>
-            <a class="navbar-brand" href=".">Kurento Tutorial</a>
+            <a class="navbar-brand" href=".">Kurento Demo</a>
           </div>
           <div class="collapse navbar-collapse"
             id="bs-example-navbar-collapse-1">
-            <ul class="nav navbar-nav navbar-right">
-              <li>
-                <a href="https://github.com/Kurento/kurento-tutorial-node/tree/develop/kurento-one2one-call">
-                  <span class="glyphicon glyphicon-file"></span> Source Code</a>
-              </li>
-            </ul>
           </div>
         </div>
       </div>
@@ -49,15 +42,8 @@
 
     <div class="container">
       <div class="page-header">
-        <h1>Tutorial 4: Video Call 1 to 1 with WebRTC</h1>
+        <h1>Video Call 1 to 1 with recording</h1>
         <p>
-          This web application consists on an one to one video call using <a
-            href="http://www.webrtc.org/">WebRTC</a>. In other words, this
-          application is similar to a phone but also with video. The <a
-            href="img/pipeline.png" data-toggle="lightbox"
-            data-title="Video Call 1 to 1 Media Pipeline"
-            data-footer="Two interconnected WebRtcEnpoints Media Elements">Media
-            Pipeline</a> is composed by two interconnected <i>WebRtcEndpoints</i>.
           To run this demo follow these steps:
         </p>
         <ol>
@@ -66,8 +52,8 @@
           <li>In a different machine (or a different tab in the same browser) follow the same procedure to register another user.</li>
           <li>Type the name of the user to be called in the field <i>Peer</i> and click <i>Call</i>.</li>
           <li>Grant the access to the camera and microphone for both users. After the SDP negotiation the communication should start.</li>
-          <li>The called user should accept the incoming call (by a confirmation dialog).</li>
           <li>Click on <i>Stop</i> to finish the communication.</li>
+          <li>Open <a target="_blank" href="#" onclick="window.location='http://'+location.hostname">this page</a> in new tab to find recorded videos</li>
         </ol>
       </div>
       <div class="row">
@@ -96,6 +82,37 @@
                 <span class="glyphicon glyphicon-stop"></span> Stop</a>
             </div>
           </div>
+          <br>
+          <label class="control-label">Web Camera Configuration</label>
+          <div class="row">
+            <div class="col-md-12">
+              <label class="control-label" for="webcam">Web Cam</label>
+              <select id="webcam" class="form-control" name="webcam"></select>
+            </div>
+          </div>
+          <br>
+          <div class="row">
+            <div class="col-md-6">
+              <label class="control-label" for="fps">FPS</label>
+              <input id="fps" name="fps" class="form-control" type="number" placeholder="10-30" value="30" min="1" max="30"/>
+            </div>
+            <div class="col-md-6">
+              <label class="control-label" for="resolution">Resolution</label>
+              <select id="resolution" class="form-control" name="resolution"></select>
+            </div>
+          </div>
+          <br/>
+          <br>
+          <div class="row">
+             <div class="col-md-6">
+              <label class="control-label" for="bitrate">Bitrate Mbps</label>
+              <input id="bitrate" name="bitrate" class="form-control" type="text" placeholder="1-100" value="5" min="1" max="100"/>
+            </div>
+            <div class="col-md-6">
+              <label class="control-label" for="bandwidth">Bandwidth Mbps</label>
+              <input id="bandwidth" name="bandwidth" class="form-control" type="text" placeholder="1-100" value="5" min="1" max="100"/>
+            </div>
+          </div>
           <br/>
           <label class="control-label" for="console">Console</label><br><br>
           <div id="console" class="democonsole">
@@ -117,27 +134,12 @@
       <div class="foot-fixed-bottom">
         <div class="container text-center">
           <hr/>
-          <div class="row">&copy; 2014-2015 Kurento</div>
-          <div class="row">
-            <div class="col-md-4">
-              <a href="http://www.urjc.es">
-                <img src="img/urjc.gif" alt="Universidad Rey Juan Carlos" height="50px"/>
-              </a>
-            </div>
-            <div class="col-md-4">
-              <a href="http://www.kurento.org">
-                <img src="img/kurento.png" alt="Kurento" height="50px"/>
-              </a>
-            </div>
-            <div class="col-md-4">
-              <a href="http://www.naevatec.com">
-                <img src="img/naevatec.png" alt="Naevatec" height="50px"/>
-              </a>
-            </div>
-          </div>
         </div>
       </div>
     </footer>
+
+    <script src="js/webcam.js"></script>
+    <script src="js/index.js"></script>
 
   </body>
 </html>
